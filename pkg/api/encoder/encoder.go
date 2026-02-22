@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"unsafe"
 
 	"github.com/microsoft/typescript-go/pkg/ast"
 )
@@ -15,8 +16,9 @@ const (
 	NodeOffsetNext
 	NodeOffsetParent
 	NodeOffsetData
+	NodeOffsetPointer
 	// NodeSize is the number of bytes that represents a single node in the encoded format.
-	NodeSize
+	NodeSize = NodeOffsetPointer + 8
 )
 
 const (
@@ -269,7 +271,7 @@ func EncodeSourceFile(sourceFile *ast.SourceFile) ([]byte, error) {
 					nodes[prevIndex*NodeSize+NodeOffsetNext+3] = b3
 				}
 
-				nodes = appendUint32s(nodes, SyntaxKindNodeList, uint32(nodeList.Pos()), uint32(nodeList.End()), 0, parentIndex, uint32(len(nodeList.Nodes)))
+				nodes = appendUint32s(nodes, SyntaxKindNodeList, uint32(nodeList.Pos()), uint32(nodeList.End()), 0, parentIndex, uint32(len(nodeList.Nodes)), 0, 0)
 
 				saveParentIndex := parentIndex
 
@@ -302,6 +304,7 @@ func EncodeSourceFile(sourceFile *ast.SourceFile) ([]byte, error) {
 		}
 
 		nodes = appendUint32s(nodes, uint32(node.Kind), uint32(node.Pos()), uint32(node.End()), 0, parentIndex, getNodeData(node, strs, &extendedData))
+		nodes = binary.LittleEndian.AppendUint64(nodes, uint64(uintptr(unsafe.Pointer(node))))
 
 		saveParentIndex := parentIndex
 
@@ -314,11 +317,11 @@ func EncodeSourceFile(sourceFile *ast.SourceFile) ([]byte, error) {
 		return node
 	}
 
-	nodes = appendUint32s(nodes, 0, 0, 0, 0, 0, 0)
+	nodes = appendUint32s(nodes, 0, 0, 0, 0, 0, 0, 0, 0)
 
 	nodeCount++
 	parentIndex++
-	nodes = appendUint32s(nodes, uint32(sourceFile.Kind), uint32(sourceFile.Pos()), uint32(sourceFile.End()), 0, 0, getSourceFileData(sourceFile, strs, &extendedData))
+	nodes = appendUint32s(nodes, uint32(sourceFile.Kind), uint32(sourceFile.Pos()), uint32(sourceFile.End()), 0, 0, getSourceFileData(sourceFile, strs, &extendedData), 0, 0)
 
 	visitor.VisitEachChild(sourceFile.AsNode())
 
@@ -354,12 +357,7 @@ func EncodeSourceFile(sourceFile *ast.SourceFile) ([]byte, error) {
 
 func appendUint32s(buf []byte, values ...uint32) []byte {
 	for _, value := range values {
-		var err error
-		if buf, err = binary.Append(buf, binary.LittleEndian, value); err != nil {
-			// The only error binary.Append can return is for values that are not fixed-size.
-			// This can never happen here, since we are always appending uint32.
-			panic(fmt.Sprintf("failed to append uint32: %v", err))
-		}
+		buf = binary.LittleEndian.AppendUint32(buf, value)
 	}
 	return buf
 }

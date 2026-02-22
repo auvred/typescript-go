@@ -183,7 +183,8 @@ const NODE_OFFSET_END = 8;
 const NODE_OFFSET_NEXT = 12;
 const NODE_OFFSET_PARENT = 16;
 const NODE_OFFSET_DATA = 20;
-const NODE_LEN = 24;
+const NODE_OFFSET_POINTER = 24;
+const NODE_LEN = 32;
 
 const KIND_NODE_LIST = 2 ** 32 - 1;
 
@@ -214,6 +215,10 @@ export class RemoteNodeBase {
 
     get next(): number {
         return this.view.getUint32(this.byteIndex + NODE_OFFSET_NEXT, true);
+    }
+
+    get pointer(): bigint {
+        return this.view.getBigUint64(this.byteIndex + NODE_OFFSET_POINTER, true);
     }
 
     protected get byteIndex(): number {
