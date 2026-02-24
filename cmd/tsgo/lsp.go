@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/microsoft/typescript-go/internal/bundled"
-	"github.com/microsoft/typescript-go/internal/core"
-	"github.com/microsoft/typescript-go/internal/lsp"
-	"github.com/microsoft/typescript-go/internal/pprof"
-	"github.com/microsoft/typescript-go/internal/vfs/osvfs"
+	"github.com/microsoft/typescript-go/pkg/bundled"
+	"github.com/microsoft/typescript-go/pkg/core"
+	"github.com/microsoft/typescript-go/pkg/lsp"
+	"github.com/microsoft/typescript-go/pkg/pprof"
+	"github.com/microsoft/typescript-go/pkg/vfs/osvfs"
 )
 
 func runLSP(args []string) int {

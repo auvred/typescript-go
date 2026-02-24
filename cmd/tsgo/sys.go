@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/microsoft/typescript-go/internal/bundled"
-	"github.com/microsoft/typescript-go/internal/execute/tsc"
-	"github.com/microsoft/typescript-go/internal/tspath"
-	"github.com/microsoft/typescript-go/internal/vfs"
-	"github.com/microsoft/typescript-go/internal/vfs/osvfs"
+	"github.com/microsoft/typescript-go/pkg/bundled"
+	"github.com/microsoft/typescript-go/pkg/execute/tsc"
+	"github.com/microsoft/typescript-go/pkg/tspath"
+	"github.com/microsoft/typescript-go/pkg/vfs"
+	"github.com/microsoft/typescript-go/pkg/vfs/osvfs"
 	"golang.org/x/term"
 )
 
