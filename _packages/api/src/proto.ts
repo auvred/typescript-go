@@ -157,6 +157,14 @@ export interface TypeResponse {
     symbol?: string;
 }
 
+export interface ShortTypeResponse {
+		id: string
+		f: number
+		t: ShortTypeResponse[]
+		s: number
+		sp: string
+}
+
 export interface SignatureResponse {
     id: string;
     flags: number;

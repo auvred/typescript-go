@@ -1,4 +1,5 @@
 import type {
+    ShortTypeResponse,
     SignatureResponse,
     SymbolResponse,
     TypeResponse,
@@ -14,9 +15,10 @@ export interface Identifiable {
 /**
  * Factory functions for creating API objects.
  */
-export interface ObjectFactories<TSymbol extends Identifiable, TType extends Identifiable, TSignature extends Identifiable = Identifiable> {
+export interface ObjectFactories<TSymbol extends Identifiable, TType extends Identifiable, TShortType extends Identifiable, TSignature extends Identifiable = Identifiable> {
     createSymbol(data: SymbolResponse): TSymbol;
     createType(data: TypeResponse): TType;
+		createShortType(data: ShortTypeResponse): TShortType;
     createSignature(data: SignatureResponse): TSignature;
 }
 
@@ -33,14 +35,16 @@ export interface ObjectFactories<TSymbol extends Identifiable, TType extends Ide
 export class ObjectRegistry<
     TSymbol extends Identifiable,
     TType extends Identifiable,
+    TShortType extends Identifiable,
     TSignature extends Identifiable = Identifiable,
 > {
     private symbols: Map<string, TSymbol> = new Map();
     private types: Map<string, TType> = new Map();
+    private shortTypes: Map<string, TShortType> = new Map();
     private signatures: Map<string, TSignature> = new Map();
-    private factories: ObjectFactories<TSymbol, TType, TSignature>;
+    private factories: ObjectFactories<TSymbol, TType, TShortType, TSignature>;
 
-    constructor(factories: ObjectFactories<TSymbol, TType, TSignature>) {
+    constructor(factories: ObjectFactories<TSymbol, TType, TShortType, TSignature>) {
         this.factories = factories;
     }
 
@@ -63,6 +67,17 @@ export class ObjectRegistry<
 
         type = this.factories.createType(data);
         this.types.set(data.id, type);
+        return type;
+    }
+
+    getOrCreateShortType(data: ShortTypeResponse): TShortType {
+        let type = this.shortTypes.get(data.id);
+        if (type) {
+            return type;
+        }
+
+        type = this.factories.createShortType(data);
+        this.shortTypes.set(data.id, type);
         return type;
     }
 

@@ -25,6 +25,7 @@ import {
     parseNodeHandle,
     readParseOptionsKey,
     readSourceFileHash,
+    RemoteNode,
     RemoteSourceFile,
 } from "../node.ts";
 import { ObjectRegistry } from "../objectRegistry.ts";
@@ -43,6 +44,7 @@ import type {
     InitializeResponse,
     LSPUpdateSnapshotParams,
     ProjectResponse,
+    ShortTypeResponse,
     SignatureResponse,
     SymbolResponse,
     TypeResponse,
@@ -81,7 +83,7 @@ export type { ConditionalType, IndexedAccessType, IndexType, InterfaceType, Inte
 export { documentURIToFileName, fileNameToDocumentURI } from "../path.ts";
 
 /** Type alias for the snapshot-scoped object registry */
-type SnapshotObjectRegistry = ObjectRegistry<Symbol, TypeObject, Signature>;
+type SnapshotObjectRegistry = ObjectRegistry<Symbol, TypeObject, ShortTypeObject, Signature>;
 
 export class API<FromLSP extends boolean = false> {
     private client: Client;
@@ -193,9 +195,10 @@ export class Snapshot {
         this.toPath = toPath;
         this.onDispose = onDispose;
 
-        this.objectRegistry = new ObjectRegistry<Symbol, TypeObject, Signature>({
+        this.objectRegistry = new ObjectRegistry<Symbol, TypeObject, ShortTypeObject, Signature>({
             createSymbol: symbolData => new Symbol(symbolData, this.client, this.id, this.objectRegistry),
             createType: typeData => new TypeObject(typeData, this.client, this.id, this.objectRegistry),
+						createShortType: typeData => new ShortTypeObject(typeData, this.objectRegistry),
             createSignature: sigData => new Signature(sigData, this.objectRegistry),
         });
 
@@ -425,6 +428,16 @@ export class Checker {
         return data ? this.objectRegistry.getOrCreateType(data) : undefined;
     }
 
+    getTypeAtLocationPtr(node: RemoteNode): ShortTypeObject {
+        const data = this.client.apiRequest<ShortTypeResponse | null>("getTypeAtLocationPtr", {
+            snapshot: this.snapshotId,
+            project: this.projectId,
+            pointer: JSON.rawJSON(node.pointer),
+        });
+
+				return this.objectRegistry.getOrCreateShortType(data!)
+    }
+
     getTypeAtLocation(node: Node): Type | undefined;
     getTypeAtLocation(nodes: readonly Node[]): (Type | undefined)[];
     getTypeAtLocation(nodeOrNodes: Node | readonly Node[]): Type | (Type | undefined)[] | undefined {
@@ -643,6 +656,22 @@ export class Symbol {
         const data = this.client.apiRequest<SymbolResponse[] | null>("getExportsOfSymbol", { snapshot: this.snapshotId, symbol: this.id });
         return data ? data.map(d => this.objectRegistry.getOrCreateSymbol(d)) : [];
     }
+}
+
+export class ShortTypeObject {
+	readonly id: string
+	readonly flags: TypeFlags
+	readonly types: ShortTypeObject[]
+	readonly symbolFlags: SymbolFlags
+	readonly symbolValueDeclarationParentPtr: bigint | undefined
+
+  constructor(data: ShortTypeResponse, objectRegistry: SnapshotObjectRegistry) {
+    this.id = data.id;
+    this.flags = data.f;
+		this.types = data.t.map(t => objectRegistry.getOrCreateShortType(t))
+		this.symbolFlags = data.s
+		this.symbolValueDeclarationParentPtr = data.sp.length === 0 ? undefined : BigInt('0x' + data.sp)
+	}
 }
 
 class TypeObject implements Type {

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"unsafe"
+	"strconv"
 
 	"github.com/microsoft/typescript-go/pkg/api/encoder"
 	"github.com/microsoft/typescript-go/pkg/ast"
@@ -339,6 +341,10 @@ func (s *Session) HandleRequest(ctx context.Context, method string, params json.
 		return s.handleGetSignaturesOfType(ctx, parsed.(*GetSignaturesOfTypeParams))
 	case string(MethodGetTypeAtLocation):
 		return s.handleGetTypeAtLocation(ctx, parsed.(*GetTypeAtLocationParams))
+	case string(MethodGetTypeAtLocationPtr):
+		return s.handleGetTypeAtLocationPtr(ctx, parsed.(*GetTypeAtLocationPtrParams))
+	case string(MethodGetTypeAtLocationBatch):
+		return s.handleGetTypeAtLocationBatch(ctx, parsed.(*GetTypeAtLocationBatchParams))
 	case string(MethodGetTypeAtLocations):
 		return s.handleGetTypeAtLocations(ctx, parsed.(*GetTypeAtLocationsParams))
 	case string(MethodGetTypeAtPosition):
@@ -950,6 +956,65 @@ func (s *Session) handleGetTypeAtLocation(ctx context.Context, params *GetTypeAt
 	}
 
 	return setup.sd.registerType(t), nil
+}
+
+type ShortTypeResponse struct {
+	Id Handle[checker.Type] `json:"id"`
+	Flags uint32 `json:"f"`
+	Types []*ShortTypeResponse `json:"t"`
+	SymbolFlags uint32 `json:"s"`
+	SymbolValueDeclParent string `json:"sp"`
+}
+
+func typeToShortTypeResp(t *checker.Type) *ShortTypeResponse {
+	r := &ShortTypeResponse{
+		Id: TypeHandle(t),
+		Flags: uint32(t.Flags()),
+	}
+	if t.Flags()&checker.TypeFlagsUnionOrIntersection != 0 {
+		types := t.Types()
+		r.Types = make([]*ShortTypeResponse, len(types))
+		for i, subtype := range types {
+			r.Types[i] = typeToShortTypeResp(subtype)
+		}
+	}
+	if symbol := t.Symbol(); symbol != nil {
+		r.SymbolFlags = uint32(symbol.Flags)
+		if symbol.ValueDeclaration != nil {
+			r.SymbolValueDeclParent = strconv.FormatUint(uint64(uintptr(unsafe.Pointer(symbol.ValueDeclaration.Parent))), 16)
+		}
+	}
+	return r
+}
+
+func (s *Session) handleGetTypeAtLocationPtr(ctx context.Context, params *GetTypeAtLocationPtrParams) (*ShortTypeResponse, error) {
+	setup, err := s.setupChecker(ctx, params.Snapshot, params.Project)
+	if err != nil {
+		return nil, err
+	}
+	defer setup.done()
+
+	node := (*ast.Node)(unsafe.Pointer(uintptr(params.Pointer)))
+
+	t := setup.checker.GetTypeAtLocation(node)
+	return typeToShortTypeResp(t), nil
+}
+
+func (s *Session) handleGetTypeAtLocationBatch(ctx context.Context, params *GetTypeAtLocationBatchParams) ([]*ShortTypeResponse, error) {
+	setup, err := s.setupChecker(ctx, params.Snapshot, params.Project)
+	if err != nil {
+		return nil, err
+	}
+	defer setup.done()
+
+	res := make([]*ShortTypeResponse, len(params.Pointers))
+	for i, ptr := range params.Pointers {
+		node := (*ast.Node)(unsafe.Pointer(uintptr(ptr)))
+
+		t := setup.checker.GetTypeAtLocation(node)
+		res[i] = typeToShortTypeResp(t)
+	}
+	return res, nil
 }
 
 // handleGetTypeAtLocations returns types at multiple node locations.

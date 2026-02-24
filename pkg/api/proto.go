@@ -110,6 +110,8 @@ const (
 	MethodGetSymbolOfType          Method = "getSymbolOfType"
 	MethodGetSignaturesOfType      Method = "getSignaturesOfType"
 	MethodGetTypeAtLocation        Method = "getTypeAtLocation"
+	MethodGetTypeAtLocationPtr     Method = "getTypeAtLocationPtr"
+	MethodGetTypeAtLocationBatch   Method = "getTypeAtLocationBatch"
 	MethodGetTypeAtLocations       Method = "getTypeAtLocations"
 	MethodGetTypeAtPosition        Method = "getTypeAtPosition"
 	MethodGetTypesAtPositions      Method = "getTypesAtPositions"
@@ -305,6 +307,8 @@ var unmarshalers = map[Method]func([]byte) (any, error){
 	MethodGetSymbolOfType:          unmarshallerFor[GetSymbolOfTypeParams],
 	MethodGetSignaturesOfType:      unmarshallerFor[GetSignaturesOfTypeParams],
 	MethodGetTypeAtLocation:        unmarshallerFor[GetTypeAtLocationParams],
+	MethodGetTypeAtLocationPtr:     unmarshallerFor[GetTypeAtLocationPtrParams],
+	MethodGetTypeAtLocationBatch:   unmarshallerFor[GetTypeAtLocationBatchParams],
 	MethodGetTypeAtLocations:       unmarshallerFor[GetTypeAtLocationsParams],
 	MethodGetTypeAtPosition:        unmarshallerFor[GetTypeAtPositionParams],
 	MethodGetTypesAtPositions:      unmarshallerFor[GetTypesAtPositionsParams],
@@ -667,6 +671,17 @@ type GetTypeAtLocationParams struct {
 	Snapshot Handle[project.Snapshot] `json:"snapshot"`
 	Project  Handle[project.Project]  `json:"project"`
 	Location Handle[ast.Node]         `json:"location"`
+}
+
+type GetTypeAtLocationPtrParams struct {
+	Snapshot Handle[project.Snapshot] `json:"snapshot"`
+	Project  Handle[project.Project]  `json:"project"`
+	Pointer  uint64         					`json:"pointer"`
+}
+type GetTypeAtLocationBatchParams struct {
+	Snapshot Handle[project.Snapshot] `json:"snapshot"`
+	Project  Handle[project.Project]  `json:"project"`
+	Pointers []uint64       					`json:"pointers"`
 }
 
 type GetTypeAtLocationsParams struct {

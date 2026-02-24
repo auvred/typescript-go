@@ -17,6 +17,7 @@ import {
     parseNodeHandle,
     readParseOptionsKey,
     readSourceFileHash,
+    RemoteNode,
     RemoteSourceFile,
 } from "../node.ts";
 import { ObjectRegistry } from "../objectRegistry.ts";
@@ -35,6 +36,7 @@ import type {
     InitializeResponse,
     LSPUpdateSnapshotParams,
     ProjectResponse,
+    ShortTypeResponse,
     SignatureResponse,
     SymbolResponse,
     TypeResponse,
@@ -73,7 +75,23 @@ export type { ConditionalType, IndexedAccessType, IndexType, InterfaceType, Inte
 export { documentURIToFileName, fileNameToDocumentURI } from "../path.ts";
 
 /** Type alias for the snapshot-scoped object registry */
-type SnapshotObjectRegistry = ObjectRegistry<Symbol, TypeObject, Signature>;
+type SnapshotObjectRegistry = ObjectRegistry<Symbol, TypeObject, ShortTypeObject, Signature>;
+
+class ShortTypeObject {
+	readonly id: string
+	readonly flags: TypeFlags
+	readonly types: ShortTypeObject[]
+	readonly symbolFlags: SymbolFlags
+	readonly symbolValueDeclarationParentPtr: bigint | undefined
+
+  constructor(data: ShortTypeResponse, objectRegistry: SnapshotObjectRegistry) {
+    this.id = data.id;
+    this.flags = data.f;
+		this.types = data.t.map(t => objectRegistry.getOrCreateShortType(t))
+		this.symbolFlags = data.s
+		this.symbolValueDeclarationParentPtr = data.sp.length === 0 ? undefined : BigInt('0x' + data.sp)
+	}
+}
 
 export class API<FromLSP extends boolean = false> {
     private client: Client;
@@ -185,9 +203,10 @@ export class Snapshot {
         this.toPath = toPath;
         this.onDispose = onDispose;
 
-        this.objectRegistry = new ObjectRegistry<Symbol, TypeObject, Signature>({
+        this.objectRegistry = new ObjectRegistry<Symbol, TypeObject, ShortTypeObject, Signature>({
             createSymbol: symbolData => new Symbol(symbolData, this.client, this.id, this.objectRegistry),
             createType: typeData => new TypeObject(typeData, this.client, this.id, this.objectRegistry),
+						createShortType: typeData => new ShortTypeObject(typeData, this.objectRegistry),
             createSignature: sigData => new Signature(sigData, this.objectRegistry),
         });
 
@@ -415,6 +434,16 @@ export class Checker {
             symbol: symbol.id,
         });
         return data ? this.objectRegistry.getOrCreateType(data) : undefined;
+    }
+
+    async getTypeAtLocationBatch(nodes: RemoteNode[]): Promise<ShortTypeObject[]> {
+        const datas = await this.client.apiRequest<ShortTypeResponse[]>("getTypeAtLocationBatch", {
+            snapshot: this.snapshotId,
+            project: this.projectId,
+            pointers: nodes.map(node => JSON.rawJSON(node.pointer)),
+        });
+
+				return datas.map(data => this.objectRegistry.getOrCreateShortType(data))
     }
 
     getTypeAtLocation(node: Node): Promise<Type | undefined>;
