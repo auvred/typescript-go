@@ -14,7 +14,7 @@ export const HEADER_OFFSET_EXTENDED_DATA = 32;
 export const HEADER_OFFSET_NODES = 36;
 export const HEADER_SIZE = 40;
 
-export const NODE_LEN = 24;
+export const NODE_LEN = 32;
 export const KIND_NODE_LIST = 0xFFFFFFFF;
 
 export const NODE_DATA_TYPE_CHILDREN = 0x00000000;

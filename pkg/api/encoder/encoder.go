@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"unsafe"
 
 	"github.com/microsoft/typescript-go/pkg/ast"
 	"github.com/zeebo/xxh3"
@@ -16,8 +17,9 @@ const (
 	NodeOffsetNext
 	NodeOffsetParent
 	NodeOffsetData
+	NodeOffsetPointer
 	// NodeSize is the number of bytes that represents a single node in the encoded format.
-	NodeSize
+	NodeSize = NodeOffsetPointer + 8
 )
 
 const (
@@ -304,7 +306,7 @@ func encodeTree(rootNode *ast.Node, sourceFile *ast.SourceFile) ([]byte, error) 
 					nodes[prevIndex*NodeSize+NodeOffsetNext+3] = b3
 				}
 
-				nodes = appendUint32s(nodes, SyntaxKindNodeList, uint32(nodeList.Pos()), uint32(nodeList.End()), 0, parentIndex, uint32(len(nodeList.Nodes)))
+				nodes = appendUint32s(nodes, SyntaxKindNodeList, uint32(nodeList.Pos()), uint32(nodeList.End()), 0, parentIndex, uint32(len(nodeList.Nodes)), 0, 0)
 
 				saveParentIndex := parentIndex
 
@@ -337,6 +339,7 @@ func encodeTree(rootNode *ast.Node, sourceFile *ast.SourceFile) ([]byte, error) 
 		}
 
 		nodes = appendUint32s(nodes, uint32(node.Kind), uint32(node.Pos()), uint32(node.End()), 0, parentIndex, getNodeData(node, strs, &extendedData))
+		nodes = binary.LittleEndian.AppendUint64(nodes, uint64(uintptr(unsafe.Pointer(node))))
 
 		saveParentIndex := parentIndex
 
@@ -349,12 +352,12 @@ func encodeTree(rootNode *ast.Node, sourceFile *ast.SourceFile) ([]byte, error) 
 		return node
 	}
 
-	nodes = appendUint32s(nodes, 0, 0, 0, 0, 0, 0)
+	nodes = appendUint32s(nodes, 0, 0, 0, 0, 0, 0, 0, 0)
 
 	nodeCount++
 	parentIndex++
 
-	nodes = appendUint32s(nodes, uint32(rootNode.Kind), uint32(rootNode.Pos()), uint32(rootNode.End()), 0, 0, getNodeData(rootNode, strs, &extendedData))
+	nodes = appendUint32s(nodes, uint32(rootNode.Kind), uint32(rootNode.Pos()), uint32(rootNode.End()), 0, 0, getNodeData(rootNode, strs, &extendedData), 0, 0)
 
 	visitor.VisitEachChild(rootNode)
 

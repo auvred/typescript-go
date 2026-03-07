@@ -61,6 +61,7 @@ const NODE_OFFSET_END = 8;
 const NODE_OFFSET_NEXT = 12;
 const NODE_OFFSET_PARENT = 16;
 const NODE_OFFSET_DATA = 20;
+const NODE_OFFSET_POINTER = 24;
 
 export class RemoteNodeBase {
     parent: RemoteNode;
@@ -89,6 +90,13 @@ export class RemoteNodeBase {
 
     get next(): number {
         return this.view.getUint32(this._byteIndex + NODE_OFFSET_NEXT, true);
+    }
+    
+    get pointerHi(): number {
+        return this.view.getUint32(this._byteIndex + NODE_OFFSET_POINTER + 4, true);
+    }
+    get pointerLo(): number {
+        return this.view.getUint32(this._byteIndex + NODE_OFFSET_POINTER, true);
     }
 
     protected get parentIndex(): number {
